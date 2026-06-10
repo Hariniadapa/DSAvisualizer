@@ -1,5 +1,5 @@
 // frontend/src/components/Sketch/SketchCanvas.jsx
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { predictSketch } from '../../services/api';
 
 export default function SketchCanvas() {
@@ -10,7 +10,6 @@ export default function SketchCanvas() {
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { redraw(); }, [strokes]);
 
   const getPos = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
@@ -50,7 +49,7 @@ export default function SketchCanvas() {
     setCurrent([]);
   };
 
-  const redraw = () => {
+  const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -63,7 +62,9 @@ export default function SketchCanvas() {
       stroke.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
       ctx.stroke();
     });
-  };
+  }, [strokes]);
+
+  useEffect(() => { redraw(); }, [redraw]);
 
   const clearCanvas = () => {
     setStrokes([]);

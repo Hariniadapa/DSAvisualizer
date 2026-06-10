@@ -20,6 +20,7 @@ app.use('/api/problems', require('./routes/problems'));
 app.use('/api/progress', require('./routes/progress'));
 app.use('/api/ml',       require('./routes/ml'));
 app.use('/api/ai',       require('./routes/ai'));
+app.use('/api/execute',  require('./routes/execute'));
 
 // Global error handler
 app.use((err, req, res, next) => {

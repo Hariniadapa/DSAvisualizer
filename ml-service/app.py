@@ -2,6 +2,7 @@
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import pandas as pd
 import joblib
 import numpy as np
 import json
@@ -80,19 +81,21 @@ def predict_mastery():
         mastery_features = joblib.load('models/mastery_features.pkl')
 
         # Map frontend fields → real model features
-        # Frontend sends: attempts, cf_rating, topic_complexity etc.
-        # Real model expects: rating_at_submission, problem_rating, rating_gap, topic_complexity
-
-        rating_at_submission = user_data.get('rating_at_submission', 1200)
-        problem_rating       = user_data.get('cf_rating', 1200)
-        rating_gap           = rating_at_submission - problem_rating
-        topic_complexity     = user_data.get('topic_complexity', 1)
+        # Training and inference now use the exact same 6-feature schema
+        problem_topic       = user_data.get('problem_topic', 1)
+        attempts_so_far     = user_data.get('attempts_so_far', 1)
+        avg_time_on_problem = user_data.get('avg_time_on_problem', 60)
+        hints_used          = user_data.get('hints_used', 0)
+        consecutive_correct = user_data.get('consecutive_correct', 0)
+        days_since_last     = user_data.get('days_since_last', 0)
 
         features = pd.DataFrame([[
-            rating_at_submission,
-            problem_rating,
-            rating_gap,
-            topic_complexity
+            problem_topic,
+            attempts_so_far,
+            avg_time_on_problem,
+            hints_used,
+            consecutive_correct,
+            days_since_last
         ]], columns=mastery_features)
 
         model          = joblib.load('models/mastery_model.pkl')

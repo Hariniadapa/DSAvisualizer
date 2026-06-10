@@ -1,164 +1,153 @@
-// frontend/src/pages/Dashboard.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getProgress, getReviewQueue, getProblems } from '../services/api';
+import { getProgress, getReviewQueue } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
+const TOPICS = [
+  { id: 'dp', label: 'Dynamic Programming', icon: '💡', desc: 'Optimal substructure & subproblems' },
+  { id: 'graphs', label: 'Graphs & Networks', icon: '🕸️', desc: 'Shortest paths, MST, and flows' },
+  { id: 'trees', label: 'Trees & Hierarchies', icon: '🌲', desc: 'Binary trees, BSTs, and heaps' },
+  { id: 'greedy', label: 'Greedy Algorithms', icon: '💰', desc: 'Locally optimal choices' },
+  { id: 'binary search', label: 'Binary Search', icon: '🔍', desc: 'Logarithmic search spaces' },
+  { id: 'math', label: 'Mathematics', icon: '🧮', desc: 'Combinatorics & calculations' },
+  { id: 'sortings', label: 'Sorting & Ordering', icon: '📊', desc: 'Arranging arrays efficiently' },
+  { id: 'strings', label: 'String Manipulation', icon: '🔤', desc: 'Searching & parsing words' },
+  { id: 'implementation', label: 'Implementation', icon: '💻', desc: 'Simulations & Walks' },
+  { id: 'brute force', label: 'Brute Force', icon: '🔨', desc: 'Backtracking & Search' },
+  { id: 'number theory', label: 'Number Theory', icon: '🔢', desc: 'GCD & modular arithmetic' }
+];
+
 export default function Dashboard() {
-  const [progress, setProgress]     = useState([]);
+  const [progress, setProgress]       = useState([]);
   const [reviewQueue, setReviewQueue] = useState([]);
-  const [problems, setProblems]     = useState([]);
-  const [topic, setTopic]           = useState('dp');
-  const [difficulty, setDifficulty] = useState('medium');
-  const [loading, setLoading]       = useState(false);
-  const { username, logoutUser }    = useAuth();
-  const navigate                    = useNavigate();
+  const [topic, setTopic]             = useState('dp');
+  const [difficulty, setDifficulty]   = useState('medium');
+
+  const { username } = useAuth();
+  const navigate     = useNavigate();
 
   useEffect(() => {
     loadDashboard();
   }, []);
 
   const loadDashboard = async () => {
-  try {
-    const [prog, review] = await Promise.all([
-      getProgress(),
-      getReviewQueue()
-    ]);
-    setProgress(prog.data);
-    setReviewQueue(review.data);
-  } catch (err) {
-    // Only show error if it's not a 401 (not logged in yet)
-    if (err.response?.status !== 401) {
-      toast.error('Failed to load dashboard');
-    }
-  }
-};
-
-  const fetchProblems = async () => {
-    setLoading(true);
     try {
-      const res = await getProblems(topic, difficulty);
-      setProblems(res.data);
-    } catch {
-      toast.error('Failed to fetch problems');
-    } finally {
-      setLoading(false);
+      const [prog, review] = await Promise.all([
+        getProgress(),
+        getReviewQueue()
+      ]);
+      setProgress(prog.data || []);
+      setReviewQueue(review.data || []);
+    } catch (err) {
+      if (err.response?.status !== 401) {
+        toast.error('Failed to load dashboard');
+      }
     }
   };
 
-  // Stats calculation
-  const totalSolved  = progress.filter(p => p.solved).length;
-  const avgMastery   = progress.length
-    ? Math.round(progress.reduce((a, b) => a + b.masteryPercent, 0) / progress.length)
+  const fetchProblems = () => {
+    navigate('/problems', { state: { topic, difficulty } });
+  };
+
+  // Stats
+  const totalSolved = progress.filter(p => p.solved).length;
+  const avgMastery  = progress.length
+    ? Math.round(progress.reduce((a, b) => a + (b.masteryPercent || 0), 0) / progress.length)
     : 0;
 
   return (
     <div style={styles.container}>
-
-      {/* Navbar */}
-      <div style={styles.navbar}>
-        <h2 style={styles.logo}>DSA Visualizer</h2>
-        <div style={styles.navRight}>
-          <span style={styles.welcome}>Hey, {username}!</span>
-          <button style={styles.logout} onClick={logoutUser}>Logout</button>
-        </div>
-      </div>
-
       <div style={styles.content}>
+        
+        {/* Welcome */}
+        <h2 style={styles.welcome}>👋 Hey, {username}</h2>
 
-        {/* Stats Row */}
+        {/* Stats */}
         <div style={styles.statsRow}>
-          <StatCard label="Problems Solved" value={totalSolved} />
-          <StatCard label="Avg Mastery"     value={`${avgMastery}%`} />
-          <StatCard label="Due for Review"  value={reviewQueue.length} highlight={reviewQueue.length > 0} />
-          <StatCard label="Total Attempted" value={progress.length} />
+          <StatCard label="Solved" value={totalSolved} />
+          <StatCard label="Avg Mastery" value={`${avgMastery}%`} />
+          <StatCard label="Review Due" value={reviewQueue.length} highlight />
+          <StatCard label="Attempted" value={progress.length} />
         </div>
 
         {/* Review Queue */}
         {reviewQueue.length > 0 && (
           <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>📅 Due for Review Today</h3>
+            <h3 style={styles.sectionTitle}>📅 Review Today</h3>
             <div style={styles.reviewGrid}>
-              {reviewQueue.slice(0, 6).map(item => (
-                <div
-                  key={item.problemId}
-                  style={styles.reviewCard}
-                  onClick={() => navigate(`/problem/${item.problemId}`)}
-                >
-                  <p style={styles.reviewProblem}>{item.problemId}</p>
-                  <p style={styles.reviewTopic}>{item.topic}</p>
-                  <p style={styles.reviewMastery}>Mastery: {item.masteryPercent}%</p>
-                </div>
-              ))}
+              {reviewQueue.slice(0, 6).map(item => {
+                const [contestId, index] = item.problemId.split('-');
+                return (
+                  <div
+                    key={item.problemId}
+                    style={styles.reviewCard}
+                    onClick={() => navigate(`/problem/${contestId}/${index}`)}
+                  >
+                    <p style={styles.reviewProblem}>{item.problemId}</p>
+                    <p style={styles.reviewTopic}>{item.topic}</p>
+                    <p style={styles.reviewMastery}>
+                      Mastery: {item.masteryPercent}%
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Problem Browser */}
         <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>🔍 Browse Problems</h3>
-          <div style={styles.filterRow}>
-            {/* REPLACE the <select> for topic with this: */}
-        <select
-            style={styles.select}
-            value={topic}
-            onChange={e => setTopic(e.target.value)}
-        >
-        <option value="dp">Dynamic Programming</option>
-        <option value="graphs">Graphs</option>
-        <option value="trees">Trees</option>
-        <option value="greedy">Greedy</option>
-        <option value="binary search">Binary Search</option>
-        <option value="math">Math</option>
-        <option value="sortings">Sorting</option>        {/* ← was "sorting" */}
-        <option value="strings">Strings</option>          {/* ← new */}
-        <option value="implementation">Implementation</option>  {/* ← new, most common tag */}
-        <option value="brute force">Brute Force</option>  {/* ← new */}
-        <option value="number theory">Number Theory</option>
-        </select>
+          <h3 style={styles.sectionTitle}>🔍 Browse Topics</h3>
+          <p style={styles.sectionSubtitle}>Select a topic card below, choose a difficulty, and fetch problems.</p>
 
-            <select
-              style={styles.select}
-              value={difficulty}
-              onChange={e => setDifficulty(e.target.value)}
-            >
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-            </select>
-
-            <button style={styles.button} onClick={fetchProblems} disabled={loading}>
-              {loading ? 'Loading...' : 'Fetch Problems'}
-            </button>
+          {/* Topics Grid */}
+          <div style={styles.topicsGrid}>
+            {TOPICS.map(t => (
+              <div
+                key={t.id}
+                onClick={() => setTopic(t.id)}
+                style={{
+                  ...styles.topicCard,
+                  ...(topic === t.id ? styles.topicCardActive : {})
+                }}
+              >
+                <div style={styles.cardHeader}>
+                  <span style={styles.cardIcon}>{t.icon}</span>
+                  <span style={styles.cardLabel}>{t.label}</span>
+                </div>
+                <p style={styles.cardDesc}>{t.desc}</p>
+              </div>
+            ))}
           </div>
 
-          {/* Problem List */}
-          {problems.length > 0 && (
-            <div style={styles.problemList}>
-              {problems.map(p => (
-                <div
-                  key={p.id}
-                  style={styles.problemRow}
-                  onClick={() => navigate(`/problem/${p.id}`, { state: { problem: p } })}
-                >
-                  <div>
-                    <span style={styles.problemName}>{p.name}</span>
-                    <span style={styles.problemTags}>{p.tags.slice(0,3).join(', ')}</span>
-                  </div>
-                  <div style={styles.problemRight}>
-                    <span style={{
-                      ...styles.ratingBadge,
-                      background: p.rating <= 1200 ? '#16a34a' : p.rating <= 1900 ? '#ca8a04' : '#dc2626'
-                    }}>
-                      {p.rating}
-                    </span>
-                    <span style={styles.arrow}>→</span>
-                  </div>
-                </div>
-              ))}
+          {/* Control Row */}
+          <div style={styles.controlsRow}>
+            <div style={styles.difficultyGroup}>
+              <span style={styles.controlsLabel}>Choose Difficulty:</span>
+              <div style={styles.diffButtons}>
+                {['easy', 'medium', 'hard'].map(diff => (
+                  <button
+                    key={diff}
+                    onClick={() => setDifficulty(diff)}
+                    style={{
+                      ...styles.diffBtn,
+                      ...(difficulty === diff ? styles.diffBtnActive : {}),
+                      ...(difficulty === diff && diff === 'easy' ? { background: '#16a34a', borderColor: '#16a34a' } : {}),
+                      ...(difficulty === diff && diff === 'medium' ? { background: '#ca8a04', borderColor: '#ca8a04' } : {}),
+                      ...(difficulty === diff && diff === 'hard' ? { background: '#dc2626', borderColor: '#dc2626' } : {})
+                    }}
+                  >
+                    {diff.toUpperCase()}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
+
+            <button style={styles.fetchBtn} onClick={fetchProblems}>
+              Fetch Problems ➔
+            </button>
+          </div>
         </div>
 
       </div>
@@ -166,10 +155,13 @@ export default function Dashboard() {
   );
 }
 
-// Small reusable stat card
+// Stat Card
 function StatCard({ label, value, highlight }) {
   return (
-    <div style={{ ...styles.statCard, borderColor: highlight ? '#f59e0b' : '#2a2a2a' }}>
+    <div style={{
+      ...styles.statCard,
+      borderColor: highlight ? '#f59e0b' : '#27272a'
+    }}>
       <p style={styles.statValue}>{value}</p>
       <p style={styles.statLabel}>{label}</p>
     </div>
@@ -177,32 +169,113 @@ function StatCard({ label, value, highlight }) {
 }
 
 const styles = {
-  container:     { minHeight:'100vh', background:'#0f0f0f', color:'white' },
-  navbar:        { display:'flex', justifyContent:'space-between', alignItems:'center', padding:'1rem 2rem', background:'#1a1a1a', borderBottom:'1px solid #2a2a2a' },
-  logo:          { margin:0, color:'#6366f1' },
-  navRight:      { display:'flex', alignItems:'center', gap:'1rem' },
-  welcome:       { color:'#aaa' },
-  logout:        { padding:'0.4rem 1rem', background:'transparent', border:'1px solid #444', color:'white', borderRadius:'6px', cursor:'pointer' },
-  content:       { padding:'2rem', maxWidth:'1100px', margin:'0 auto' },
-  statsRow:      { display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:'1rem', marginBottom:'2rem' },
-  statCard:      { background:'#1a1a1a', padding:'1.2rem', borderRadius:'10px', border:'1px solid #2a2a2a', textAlign:'center' },
-  statValue:     { fontSize:'2rem', fontWeight:'bold', margin:0, color:'#6366f1' },
-  statLabel:     { color:'#888', margin:'0.3rem 0 0', fontSize:'0.85rem' },
-  section:       { background:'#1a1a1a', borderRadius:'12px', padding:'1.5rem', marginBottom:'1.5rem', border:'1px solid #2a2a2a' },
-  sectionTitle:  { margin:'0 0 1rem', fontSize:'1.1rem' },
-  reviewGrid:    { display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'0.8rem' },
-  reviewCard:    { background:'#111', padding:'1rem', borderRadius:'8px', cursor:'pointer', border:'1px solid #333' },
-  reviewProblem: { margin:0, fontWeight:'bold', fontSize:'0.9rem' },
-  reviewTopic:   { margin:'0.2rem 0', color:'#6366f1', fontSize:'0.8rem' },
-  reviewMastery: { margin:0, color:'#888', fontSize:'0.8rem' },
-  filterRow:     { display:'flex', gap:'1rem', marginBottom:'1rem', flexWrap:'wrap' },
-  select:        { padding:'0.6rem 1rem', background:'#111', border:'1px solid #333', color:'white', borderRadius:'8px', cursor:'pointer' },
-  button:        { padding:'0.6rem 1.5rem', background:'#6366f1', color:'white', border:'none', borderRadius:'8px', cursor:'pointer' },
-  problemList:   { display:'flex', flexDirection:'column', gap:'0.5rem' },
-  problemRow:    { display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0.9rem 1rem', background:'#111', borderRadius:'8px', cursor:'pointer', border:'1px solid #222' },
-  problemName:   { fontWeight:'500', marginRight:'1rem' },
-  problemTags:   { color:'#666', fontSize:'0.8rem' },
-  problemRight:  { display:'flex', alignItems:'center', gap:'0.8rem' },
-  ratingBadge:   { padding:'0.2rem 0.6rem', borderRadius:'4px', fontSize:'0.8rem', fontWeight:'bold' },
-  arrow:         { color:'#666' }
+  container: { minHeight: 'calc(100vh - 56px)', background: '#09090b', color: '#e4e4e7' },
+  content: { padding: '2rem', maxWidth: '1100px', margin: '0 auto' },
+  welcome: { marginBottom: '1.5rem', color: '#f4f4f5', fontWeight: '700' },
+  
+  statsRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: '1rem',
+    marginBottom: '2.5rem'
+  },
+  statCard: {
+    background: '#18181b',
+    padding: '1.5rem 1rem',
+    borderRadius: '12px',
+    border: '1px solid #27272a',
+    textAlign: 'center',
+    transition: 'border-color 0.2s'
+  },
+  statValue: { fontSize: '2.2rem', fontWeight: '800', margin: 0, color: '#6366f1' },
+  statLabel: { color: '#71717a', marginTop: '0.4rem', fontSize: '0.85rem', fontWeight: '500' },
+  
+  section: {
+    background: '#18181b',
+    borderRadius: '16px',
+    padding: '2rem',
+    marginBottom: '2rem',
+    border: '1px solid #27272a'
+  },
+  sectionTitle: { fontSize: '1.25rem', fontWeight: '700', color: '#f4f4f5', margin: '0 0 0.25rem' },
+  sectionSubtitle: { fontSize: '0.85rem', color: '#71717a', margin: '0 0 1.5rem' },
+  
+  reviewGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+    gap: '1rem'
+  },
+  reviewCard: {
+    background: '#09090b',
+    padding: '1.2rem',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    border: '1px solid #27272a',
+    transition: 'transform 0.15s, border-color 0.15s'
+  },
+  reviewProblem: { margin: 0, fontWeight: '700', color: '#f4f4f5' },
+  reviewTopic: { color: '#6366f1', fontSize: '0.8rem', margin: '0.25rem 0' },
+  reviewMastery: { color: '#a1a1aa', fontSize: '0.8rem', margin: 0 },
+  
+  topicsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: '1rem',
+    marginBottom: '2rem'
+  },
+  topicCard: {
+    background: '#09090b',
+    border: '1px solid #27272a',
+    borderRadius: '12px',
+    padding: '1.2rem',
+    cursor: 'pointer',
+    transition: 'transform 0.2s, border-color 0.2s, background-color 0.2s'
+  },
+  topicCardActive: {
+    borderColor: '#6366f1',
+    background: '#1e1b4b',
+    boxShadow: '0 0 12px rgba(99, 102, 241, 0.15)'
+  },
+  cardHeader: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' },
+  cardIcon: { fontSize: '1.2rem' },
+  cardLabel: { fontWeight: '700', fontSize: '0.9rem', color: '#f4f4f5' },
+  cardDesc: { fontSize: '0.75rem', color: '#71717a', margin: 0, lineHeight: '1.4' },
+  
+  controlsRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTop: '1px solid #27272a',
+    paddingTop: '1.5rem',
+    flexWrap: 'wrap',
+    gap: '1rem'
+  },
+  difficultyGroup: { display: 'flex', alignItems: 'center', gap: '1rem' },
+  controlsLabel: { fontSize: '0.85rem', fontWeight: '600', color: '#71717a' },
+  diffButtons: { display: 'flex', gap: '0.5rem' },
+  diffBtn: {
+    padding: '0.5rem 1.2rem',
+    background: '#09090b',
+    border: '1px solid #27272a',
+    color: '#a1a1aa',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '0.8rem',
+    fontWeight: '700',
+    transition: 'all 0.15s'
+  },
+  diffBtnActive: {
+    color: '#fff'
+  },
+  fetchBtn: {
+    padding: '0.65rem 1.8rem',
+    background: '#6366f1',
+    border: 'none',
+    borderRadius: '8px',
+    color: '#fff',
+    cursor: 'pointer',
+    fontWeight: '700',
+    fontSize: '0.9rem',
+    transition: 'background 0.2s, transform 0.15s'
+  }
 };

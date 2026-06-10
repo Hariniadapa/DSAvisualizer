@@ -1,209 +1,224 @@
-// frontend/src/components/Visualizer/Visualizer.jsx
-// Animates sorting algorithms using D3.js
-import { useEffect, useRef, useState } from 'react';
-import * as d3 from 'd3';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  getVisualizerConfig, generateInputFromProblem,
+  bubbleSortSteps, selectionSortSteps, insertionSortSteps,
+  binarySearchSteps, twoPointersSteps, COMPLEXITY
+} from '../../utils/visualizer';
 
-const ALGORITHMS = ['bubble', 'selection', 'insertion', 'merge'];
+export default function Visualizer({ problem }) {
+  const config    = getVisualizerConfig(problem);
+  const [array,     setArray]     = useState([]);
+  const [comparing, setComparing] = useState([]);
+  const [sorted,    setSorted]    = useState([]);
+  const [special,   setSpecial]   = useState({});
+  const [playing,   setPlaying]   = useState(false);
+  const [speed,     setSpeed]     = useState(500);
+  const [step,      setStep]      = useState(0);
+  const [total,     setTotal]     = useState(0);
+  const [algo,      setAlgo]      = useState('bubble');
+  const [msg,       setMsg]       = useState('Press Play to start');
+  const [done,      setDone]      = useState(false);
 
-export default function Visualizer() {
-  const svgRef                    = useRef();
-  const [array, setArray]         = useState([]);
-  const [algo, setAlgo]           = useState('bubble');
-  const [running, setRunning]     = useState(false);
-  const [speed, setSpeed]         = useState(200);
-  const stopRef                   = useRef(false);
+  const stepsRef = useRef([]);
+  const timerRef = useRef(null);
+  const stepRef = useRef(0);
 
-  useEffect(() => { generateArray(); }, []);
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
 
-  const generateArray = () => {
-    const arr = Array.from({ length: 20 }, () => Math.floor(Math.random() * 280) + 20);
-    setArray(arr);
-    drawBars(arr, []);
+  const ALGO_TABS = {
+    sorting:      [{id:'bubble',label:'Bubble'},{id:'selection',label:'Selection'},{id:'insertion',label:'Insertion'}],
+    binarysearch: [{id:'binarysearch',label:'Binary Search'}],
+    twopointers:  [{id:'twopointers',label:'Two Pointers'}],
+    default:      [{id:'bubble',label:'Bubble Sort'}],
   };
+  const tabs = ALGO_TABS[config.type] || ALGO_TABS.default;
 
-  // ── Draw bars using D3 ──────────────────────────
-  const drawBars = (arr, highlighted = []) => {
-    const svg    = d3.select(svgRef.current);
-    const W      = 560;
-    const H      = 300;
-    const barW   = W / arr.length - 2;
+  const build = useCallback(() => {
+    clearInterval(timerRef.current);
+    const arr = generateInputFromProblem(problem);
+    setArray(arr); setComparing([]); setSorted([]); setSpecial({});
+    setStep(0); setDone(false); setMsg('Press Play to start');
 
-    svg.selectAll('*').remove();
-
-    svg.selectAll('rect')
-      .data(arr)
-      .enter()
-      .append('rect')
-      .attr('x',      (_, i) => i * (barW + 2))
-      .attr('y',      d => H - d)
-      .attr('width',  barW)
-      .attr('height', d => d)
-      .attr('fill',   (_, i) =>
-        highlighted.includes(i) ? '#f59e0b' : '#6366f1'
-      )
-      .attr('rx', 3);
-  };
-
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-  // ── Bubble Sort ─────────────────────────────────
-  const bubbleSort = async (arr) => {
-    const a = [...arr];
-    for (let i = 0; i < a.length; i++) {
-      for (let j = 0; j < a.length - i - 1; j++) {
-        if (stopRef.current) return;
-        if (a[j] > a[j + 1]) {
-          [a[j], a[j + 1]] = [a[j + 1], a[j]];
-        }
-        drawBars(a, [j, j + 1]);
-        await sleep(speed);
-      }
+    const tgt = arr[Math.floor(arr.length/2)];
+    let gen;
+    switch(algo) {
+      case 'selection':    gen = selectionSortSteps(arr);              break;
+      case 'insertion':    gen = insertionSortSteps(arr);              break;
+      case 'binarysearch': gen = binarySearchSteps(arr, tgt);          break;
+      case 'twopointers':  gen = twoPointersSteps(arr, arr[0]+arr[arr.length-1]); break;
+      default:             gen = bubbleSortSteps(arr);
     }
-    drawBars(a, []);
-  };
+    const steps = [...(function*(){ yield* gen; })()];
+    stepsRef.current = steps;
+    setTotal(steps.length);
+  }, [algo, problem]);
 
-  // ── Selection Sort ──────────────────────────────
-  const selectionSort = async (arr) => {
-    const a = [...arr];
-    for (let i = 0; i < a.length; i++) {
-      let minIdx = i;
-      for (let j = i + 1; j < a.length; j++) {
-        if (stopRef.current) return;
-        if (a[j] < a[minIdx]) minIdx = j;
-        drawBars(a, [i, j, minIdx]);
-        await sleep(speed);
-      }
-      [a[i], a[minIdx]] = [a[minIdx], a[i]];
+  useEffect(() => { build(); }, [build]);
+
+  const applyStep = useCallback((idx) => {
+    const st = stepsRef.current[idx];
+    if (!st) return;
+    if (st.array) setArray(st.array);
+    setComparing(st.comparing || []);
+    setSorted(st.sorted || []);
+    if (st.lo !== undefined) {
+      setSpecial({lo:st.lo, hi:st.hi, mid:st.mid});
+      setMsg(st.found ? `✓ Found at index ${st.mid}!` : `lo=${st.lo}  mid=${st.mid}  hi=${st.hi}  val=${st.array?.[st.mid]}`);
+    } else if (st.sum !== undefined) {
+      setSpecial({lo:st.lo, hi:st.hi});
+      setMsg(`[${st.lo}]+[${st.hi}]=${st.sum} ${st.found?'✓ Found!':st.sum<st.target?'→ move left ptr':'→ move right ptr'}`);
+    } else if (st.comparing?.length) {
+      setMsg(`Comparing index ${st.comparing[0]} (${st.array?.[st.comparing[0]]}) ↔ ${st.comparing[1]} (${st.array?.[st.comparing[1]]})`);
+    } else {
+      setMsg('✓ All done!');
     }
-    drawBars(a, []);
-  };
+  }, []);
 
-  // ── Insertion Sort ──────────────────────────────
-  const insertionSort = async (arr) => {
-    const a = [...arr];
-    for (let i = 1; i < a.length; i++) {
-      let key = a[i];
-      let j   = i - 1;
-      while (j >= 0 && a[j] > key) {
-        if (stopRef.current) return;
-        a[j + 1] = a[j];
-        j--;
-        drawBars(a, [j + 1, i]);
-        await sleep(speed);
+  useEffect(() => {
+    if (!playing) return;
+    timerRef.current = setInterval(() => {
+      const next = stepRef.current + 1;
+      if (next >= stepsRef.current.length) {
+        setPlaying(false); setDone(true);
+        clearInterval(timerRef.current);
+      } else {
+        setStep(next);
+        applyStep(next);
       }
-      a[j + 1] = key;
-    }
-    drawBars(a, []);
+    }, speed);
+    return () => clearInterval(timerRef.current);
+  }, [playing, speed, applyStep]);
+
+  const play     = () => { if(done){build();setTimeout(()=>setPlaying(true),150);}else setPlaying(true); };
+  const pause    = () => setPlaying(false);
+  const reset    = () => { setPlaying(false); build(); };
+  const stepFwd  = () => {
+    setPlaying(false);
+    const n = Math.min(step+1, stepsRef.current.length-1);
+    setStep(n); applyStep(n);
   };
 
-  // ── Merge Sort ──────────────────────────────────
-  const mergeSort = async (arr) => {
-    const a = [...arr];
+  const maxVal = Math.max(...array, 1);
+  const cx = COMPLEXITY[algo] || {time:'O(?)',space:'O(?)'};
 
-    const merge = async (arr, l, m, r) => {
-      const left  = arr.slice(l, m + 1);
-      const right = arr.slice(m + 1, r + 1);
-      let i = 0, j = 0, k = l;
-
-      while (i < left.length && j < right.length) {
-        if (stopRef.current) return;
-        if (left[i] <= right[j]) { arr[k++] = left[i++]; }
-        else                     { arr[k++] = right[j++]; }
-        drawBars(arr, [k]);
-        await sleep(speed);
-      }
-      while (i < left.length) { arr[k++] = left[i++]; }
-      while (j < right.length) { arr[k++] = right[j++]; }
-    };
-
-    const sort = async (arr, l, r) => {
-      if (l >= r) return;
-      const m = Math.floor((l + r) / 2);
-      await sort(arr, l, m);
-      await sort(arr, m + 1, r);
-      await merge(arr, l, m, r);
-    };
-
-    await sort(a, 0, a.length - 1);
-    drawBars(a, []);
-  };
-
-  const runSort = async () => {
-    stopRef.current = false;
-    setRunning(true);
-    const map = { bubble: bubbleSort, selection: selectionSort, insertion: insertionSort, merge: mergeSort };
-    await map[algo](array);
-    setRunning(false);
-  };
-
-  const stopSort = () => {
-    stopRef.current = true;
-    setRunning(false);
+  const barColor = (i) => {
+    if (sorted.includes(i))                   return '#4caf7d';
+    if (comparing.includes(i))                return '#f06060';
+    if (special.mid === i)                    return '#f0c060';
+    if (special.lo===i || special.hi===i)     return '#38bdf8';
+    return '#7c6df0';
   };
 
   return (
-    <div style={styles.container}>
-      <h3 style={styles.title}>Algorithm Visualizer</h3>
+    <div style={s.root}>
+      {/* Top bar */}
+      <div style={s.topBar}>
+        <span style={s.vizLabel}>{config.label}</span>
+        <div style={s.tabRow}>
+          {tabs.map(t => (
+            <button key={t.id}
+              onClick={() => { setAlgo(t.id); setPlaying(false); }}
+              style={{...s.tab,...(algo===t.id?s.tabOn:{})}}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* Controls */}
-      <div style={styles.controls}>
-        {ALGORITHMS.map(a => (
-          <button
-            key={a}
-            style={{ ...styles.algoBtn, background: algo === a ? '#6366f1' : '#2a2a2a' }}
-            onClick={() => setAlgo(a)}
-            disabled={running}
-          >
-            {a.charAt(0).toUpperCase() + a.slice(1)}
-          </button>
+      {/* Legend */}
+      <div style={s.legend}>
+        {[{color:'#7c6df0',label:'Default'},{color:'#f06060',label:'Comparing'},{color:'#4caf7d',label:'Sorted'},{color:'#f0c060',label:'Pivot/Mid'},{color:'#38bdf8',label:'Pointer'}].map(l=>(
+          <span key={l.label} style={s.legendItem}>
+            <span style={{...s.legendDot,background:l.color}}/>
+            <span style={s.legendTxt}>{l.label}</span>
+          </span>
         ))}
       </div>
 
-      {/* Speed slider */}
-      <div style={styles.speedRow}>
-        <label style={styles.label}>Speed</label>
-        <input
-          type="range" min="50" max="500" step="50"
-          value={speed}
-          onChange={e => setSpeed(Number(e.target.value))}
-        />
-        <span style={styles.label}>{speed}ms</span>
+      {/* Bars */}
+      <div style={s.bars}>
+        {array.map((val, i) => (
+          <div key={i} style={s.barWrap}>
+            <span style={s.barVal}>{val}</span>
+            <div style={{
+              width:'100%',
+              height:`${Math.max((val/maxVal)*160, 6)}px`,
+              background:barColor(i),
+              borderRadius:'4px 4px 0 0',
+              transition:'height 0.12s ease, background 0.1s ease',
+              boxShadow: comparing.includes(i) ? '0 0 8px #f0606066' : sorted.includes(i) ? '0 0 8px #4caf7d44' : 'none',
+            }}/>
+            <span style={s.barIdx}>{i}</span>
+          </div>
+        ))}
       </div>
 
-      {/* SVG Canvas */}
-      <svg
-        ref={svgRef}
-        width="560"
-        height="300"
-        style={styles.svg}
-      />
+      {/* Message */}
+      <div style={s.msg}>{msg}</div>
 
-      {/* Action buttons */}
-      <div style={styles.actionRow}>
-        <button style={styles.btn} onClick={generateArray} disabled={running}>
-          New Array
-        </button>
-        <button style={styles.btnPrimary} onClick={runSort} disabled={running}>
-          ▶ Start
-        </button>
-        <button style={styles.btnDanger} onClick={stopSort} disabled={!running}>
-          ■ Stop
-        </button>
+      {/* Controls */}
+      <div style={s.controls}>
+        <button onClick={reset}   style={s.btn} title="Reset">↺ Reset</button>
+        <button onClick={stepFwd} style={s.btn} title="Step">Step ⏭</button>
+        {playing
+          ? <button onClick={pause} style={{...s.btn,...s.btnPrimary}}>⏸ Pause</button>
+          : <button onClick={play}  style={{...s.btn,...s.btnPrimary}}>▶ Play</button>
+        }
+        <div style={s.speedWrap}>
+          <span style={s.speedLbl}>Speed</span>
+          <input type="range" min={100} max={1000} step={50}
+            value={1100-speed}
+            onChange={e=>setSpeed(1100-Number(e.target.value))}
+            style={{width:90}}
+          />
+          <span style={s.speedLbl}>{Math.round((1100-speed)/100)/10}x</span>
+        </div>
+        <span style={s.stepCount}>{step} / {total} steps</span>
+      </div>
+
+      {/* Complexity */}
+      <div style={s.complexRow}>
+        <div style={s.cBox}>
+          <span style={s.cLbl}>Time Complexity</span>
+          <span style={s.cVal}>{cx.time}</span>
+        </div>
+        <div style={s.cBox}>
+          <span style={s.cLbl}>Space Complexity</span>
+          <span style={s.cVal}>{cx.space}</span>
+        </div>
+        {done && <span style={s.doneTag}>✓ Visualization complete</span>}
       </div>
     </div>
   );
 }
 
-const styles = {
-  container:  { background:'#1a1a1a', borderRadius:'12px', padding:'1.5rem', border:'1px solid #2a2a2a' },
-  title:      { margin:'0 0 1rem', color:'white' },
-  controls:   { display:'flex', gap:'0.5rem', marginBottom:'1rem', flexWrap:'wrap' },
-  algoBtn:    { padding:'0.4rem 1rem', border:'none', color:'white', borderRadius:'6px', cursor:'pointer' },
-  speedRow:   { display:'flex', alignItems:'center', gap:'1rem', marginBottom:'1rem' },
-  label:      { color:'#888', fontSize:'0.85rem' },
-  svg:        { background:'#111', borderRadius:'8px', display:'block' },
-  actionRow:  { display:'flex', gap:'0.8rem', marginTop:'1rem' },
-  btn:        { padding:'0.5rem 1.2rem', background:'#2a2a2a', color:'white', border:'none', borderRadius:'8px', cursor:'pointer' },
-  btnPrimary: { padding:'0.5rem 1.2rem', background:'#6366f1', color:'white', border:'none', borderRadius:'8px', cursor:'pointer' },
-  btnDanger:  { padding:'0.5rem 1.2rem', background:'#dc2626', color:'white', border:'none', borderRadius:'8px', cursor:'pointer' }
+const s = {
+  root:        {display:'flex',flexDirection:'column',height:'100%',padding:'12px 16px',gap:10,background:'#0f0f0f',overflow:'hidden'},
+  topBar:      {display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8},
+  vizLabel:    {color:'#7c6df0',fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5},
+  tabRow:      {display:'flex',gap:4},
+  tab:         {padding:'4px 14px',borderRadius:20,border:'1px solid #222',background:'transparent',color:'#555',fontSize:11,cursor:'pointer',transition:'all 0.15s'},
+  tabOn:       {background:'#7c6df0',color:'#fff',border:'1px solid #7c6df0'},
+  legend:      {display:'flex',gap:12,flexWrap:'wrap'},
+  legendItem:  {display:'flex',alignItems:'center',gap:4},
+  legendDot:   {width:8,height:8,borderRadius:'50%',display:'inline-block'},
+  legendTxt:   {color:'#444',fontSize:10},
+  bars:        {flex:1,display:'flex',alignItems:'flex-end',gap:4,padding:'4px 0',minHeight:140,maxHeight:200},
+  barWrap:     {flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2},
+  barVal:      {fontSize:9,color:'#555',fontWeight:500},
+  barIdx:      {fontSize:9,color:'#333'},
+  msg:         {textAlign:'center',fontSize:12,color:'#a89df5',minHeight:20,padding:'4px 0',background:'#151515',borderRadius:6,border:'1px solid #1e1e1e'},
+  controls:    {display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'},
+  btn:         {padding:'5px 12px',borderRadius:8,border:'1px solid #222',background:'#151515',color:'#888',fontSize:12,cursor:'pointer',transition:'all 0.15s'},
+  btnPrimary:  {background:'#7c6df0',color:'#fff',border:'none'},
+  speedWrap:   {display:'flex',alignItems:'center',gap:6,marginLeft:'auto'},
+  speedLbl:    {fontSize:10,color:'#444'},
+  stepCount:   {fontSize:11,color:'#444'},
+  complexRow:  {display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'},
+  cBox:        {display:'flex',flexDirection:'column',background:'#151515',border:'1px solid #1e1e1e',borderRadius:8,padding:'6px 14px',alignItems:'center'},
+  cLbl:        {fontSize:9,color:'#444',textTransform:'uppercase',letterSpacing:0.5},
+  cVal:        {fontSize:13,color:'#4caf7d',fontWeight:700,marginTop:2},
+  doneTag:     {fontSize:12,color:'#4caf7d',marginLeft:'auto',background:'#0d2010',border:'1px solid #1a4020',borderRadius:6,padding:'4px 10px'},
 };

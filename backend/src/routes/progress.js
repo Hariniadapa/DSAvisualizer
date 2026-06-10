@@ -13,8 +13,14 @@ router.post('/attempt', auth, async (req, res) => {
 
   // Find or create progress record
   let record = await Progress.findOne({ userId, problemId });
+  const isNew = !record;
 
-  if (!record) {
+  const lastAttemptDate = isNew ? null : record.lastAttempted;
+  const days_since_last = lastAttemptDate
+    ? Math.max(0, Math.round((Date.now() - new Date(lastAttemptDate).getTime()) / (24 * 60 * 60 * 1000)))
+    : 0;
+
+  if (isNew) {
     record = new Progress({ userId, problemId, topic });
   }
 
@@ -36,27 +42,36 @@ router.post('/attempt', auth, async (req, res) => {
   }
 
   // Call ML mastery predictor
-  // REPLACE the ML mastery call block with:
-try {
-  const mlRes = await axios.post(`${ML}/predict/mastery`, {
-    user_data: {
-      rating_at_submission: 1200,   // default — later fetch from CF API with user's handle
-      cf_rating:            1200,   // problem rating placeholder
-      topic_complexity:     1,
-      attempts_so_far:      record.attempts,
-      avg_time_on_problem:  record.avgTimeSecs,
-      hints_used:           record.hintsUsed,
-      consecutive_correct:  record.consecutiveCorrect
-    }
-  });
+  try {
+    const topicMap = {
+      'dp': 1, 'dynamic programming': 1,
+      'graphs': 2, 'graph': 2,
+      'trees': 3, 'tree': 3,
+      'greedy': 4,
+      'binary search': 5,
+      'math': 6,
+      'sortings': 7, 'sorting': 7
+    };
+    const problem_topic = topicMap[(topic || record.topic || '').toLowerCase()] || 8;
 
-  record.masteryPercent = mlRes.data.mastery_percent;
-  record.nextReviewDate = new Date(
-    Date.now() + mlRes.data.next_review_days * 24 * 60 * 60 * 1000
-  );
-} catch (e) {
-  console.log('ML service unavailable, skipping mastery update');
-}
+    const mlRes = await axios.post(`${ML}/predict/mastery`, {
+      user_data: {
+        problem_topic,
+        attempts_so_far:      record.attempts,
+        avg_time_on_problem:  record.avgTimeSecs,
+        hints_used:           record.hintsUsed,
+        consecutive_correct:  record.consecutiveCorrect,
+        days_since_last
+      }
+    });
+
+    record.masteryPercent = mlRes.data.mastery_percent;
+    record.nextReviewDate = new Date(
+      Date.now() + mlRes.data.next_review_days * 24 * 60 * 60 * 1000
+    );
+  } catch (e) {
+    console.log('ML service unavailable, skipping mastery update:', e.message);
+  }
 
   await record.save();
   res.json(record);

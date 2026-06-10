@@ -13,6 +13,19 @@ api.interceptors.request.use(config => {
   return config;
 });
 
+// Handle unauthorized responses (expired/invalid token)
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 // ── Auth ───────────────────────────────────
 export const register = (data) => api.post('/auth/register', data);
 export const login    = (data) => api.post('/auth/login', data);
@@ -33,3 +46,12 @@ export const predictSketch     = (strokes)   => api.post('/ml/sketch', { strokes
 
 // ── AI Coach ───────────────────────────────
 export const getHint = (data) => api.post('/ai/hint', data);
+
+// Add these exports at the bottom of your existing api.js
+
+export const getProblem     = (contestId, index) => api.get(`/problems/${contestId}/${index}`);
+export const submitSolution = (data)              => api.post('/progress/attempt', data);
+
+// ── Code Execution ─────────────────────────────
+export const executeCode = (code, language, stdin = '') =>
+  api.post('/execute', { code, language, stdin });
