@@ -1,5 +1,10 @@
 const POPULAR_PROBLEMS = {
   '4-A': {
+    inputType: 'math',
+    functionName: 'solve',
+    returnType: 'string',
+    paramNames: ['w'],
+    paramTypes: ['int'],
     description: "One hot summer day Pete and his friend Billy decided to buy a watermelon. They chose the biggest and the ripest one, in their opinion. After that the watermelon was weighed, and the scales showed w kilos. They rushed home, dying of thirst, and decided to divide the berry, however they faced a hard problem.\n\nPete and Billy are great fans of even numbers, that's why they want to divide the watermelon in such a way that each of the two parts weighs even number of kilos, at the same time it is not obligatory that the parts are equal. The boys are extremely tired and want to start their meal as soon as possible, that's why you should help them and find out, if they can divide the watermelon in the way they want. For sure, each part should have a positive weight.",
     inputFormat: "The first (and the only) input line contains integer number w (1 ≤ w ≤ 100) — the weight of the watermelon bought by the boys.",
     outputFormat: "Print YES, if the boys can divide the watermelon into two parts, each of them weighing even number of kilos; and NO in the opposite case.",
@@ -18,6 +23,11 @@ const POPULAR_PROBLEMS = {
     notes: "Both parts must have an even number of kilos and positive weights (weight > 0). Therefore, 2 cannot be divided into 1 and 1 since they are odd, nor can it be divided into 0 and 2."
   },
   '71-A': {
+    inputType: 'string',
+    functionName: 'solve',
+    returnType: 'string',
+    paramNames: ['s'],
+    paramTypes: ['string'],
     description: "Sometimes some words like 'localization' or 'internationalization' are so long that writing them many times in one text is quite tiresome.\n\nLet's consider a word too long, if its length is strictly more than 10 characters. All too long words should be replaced with a special abbreviation.\n\nThis abbreviation is made like this: we write down the first and the last letter of a word and between them we write the number of letters between the first and the last letters. That number is in decimal system and doesn't contain any leading zeroes.\n\nThus, 'localization' will be spelt as 'l10n', and 'internationalization' will be spelt as 'i18n'.\n\nYou are suggested to automatize the process of changing the words with abbreviations. All too long words should be replaced by the abbreviation and the words that are not too long should not undergo any changes.",
     inputFormat: "The first line contains an integer n (1 ≤ n ≤ 100). Each of the following n lines contains one word. All words consist of lowercase Latin letters and possess the length of from 1 to 100 characters.",
     outputFormat: "Print n lines. The i-th line should contain the result of the abbreviation of the i-th word from the input.",
@@ -37,6 +47,11 @@ const POPULAR_PROBLEMS = {
     notes: "A word is considered too long only if its length is strictly greater than 10."
   },
   '1-A': {
+    inputType: 'math',
+    functionName: 'solve',
+    returnType: 'long long',
+    paramNames: ['n', 'm', 'a'],
+    paramTypes: ['long long', 'long long', 'long long'],
     description: "Theatre Square in the capital city of Berland has a rectangular shape with the size n × m meters. On the occasion of the city's anniversary, a decision was taken to pave the Square with square granite flagstones of size a × a. What is the least number of flagstones needed to pave the Square? It's allowed to pave the larger surface than the Theatre Square, but the Square has to be covered. It's not allowed to break the flagstones. The sides of flagstones should be parallel to the sides of the Square.",
     inputFormat: "The input contains three positive integers: n, m and a (1 ≤ n, m, a ≤ 10^9).",
     outputFormat: "Print the needed number of flagstones.",
@@ -55,6 +70,11 @@ const POPULAR_PROBLEMS = {
     notes: "Since n, m, and a can be very large, you should use 64-bit integer types (long long in C++, long in Java) to prevent integer overflow."
   },
   '158-A': {
+    inputType: 'array',
+    functionName: 'solve',
+    returnType: 'int',
+    paramNames: ['n', 'k', 'a'],
+    paramTypes: ['int', 'int', 'int[]'],
     description: "\"Contestant who earns a score equal to or greater than the k-th place finisher's score will advance to the next round, as long as the contestant earns a positive score...\"\n\nCalculate the number of participants who will advance to the next round.",
     inputFormat: "The first line of the input contains two integers n and k (1 ≤ k ≤ n ≤ 50) separated by a space. The second line contains n space-separated integers a1, a2, ..., an (0 ≤ ai ≤ 100), where ai is the score earned by the participant who got the i-th place. The given sequence is non-increasing.",
     outputFormat: "Output the number of participants who advance.",
@@ -79,6 +99,11 @@ const POPULAR_PROBLEMS = {
     notes: "Contestants must have a score strictly greater than 0 to advance."
   },
   '4-C': {
+    inputType: 'generic',
+    functionName: 'solve',
+    returnType: 'void',
+    paramNames: ['input'],
+    paramTypes: ['string'],
     description: "A new e-mail service 'Berlandesk' is going to be launched in Berland in the near future. The site administration wants to register users as quickly as possible, which is why they decided to use the following system.\n\nEach time a new user wants to register, he sends the system a request with his desired username. If such a name does not exist in the system database yet, it is entered into the database and the user receives the response OK, confirming the successful registration. If the name already exists, the system writes a new name into the database, which consists of the requested name and some integer suffix (starting from 1: name1, name2, ...), and sends the user this name to let him know.",
     inputFormat: "The first line contains number n (1 ≤ n ≤ 10^5). The following n lines contain the desired usernames, one per line. Each name consists of lowercase Latin letters and has length from 1 to 32.",
     outputFormat: "Print n lines. If the name is registered for the first time, output OK. Otherwise, output the newly registered name.",
@@ -125,8 +150,18 @@ export function getProblemDetails(contestId, index, problemName, tags = [], rati
   ];
   let examples = [];
   let notes = "Make sure to optimize your solution. Think about edge cases and potential integer overflows.";
+  let inputType = 'generic';
+  let functionName = 'solve';
+  let returnType = 'void';
+  let paramNames = ['input'];
+  let paramTypes = ['String'];
 
   if (topic.includes('dp') || topic.includes('dynamic programming')) {
+    inputType = 'dp';
+    functionName = 'solve';
+    returnType = 'int';
+    paramNames = ['nums'];
+    paramTypes = ['int[]'];
     description = `You are given a sequence of integers. You want to find the optimal sub-sequence or partition that maximizes or minimizes a cost function associated with the problem "${problemName}".\n\nFormulate a recurrence relation where DP[i] represents the optimal value for the subproblem ending at index i. Transition by iterating through valid previous states and selecting the best one.`;
     inputFormat = "The first line contains an integer N, the size of the array. The second line contains N space-separated integers representing the array values.";
     outputFormat = "Print a single integer representing the maximum or minimum possible cost.";
@@ -140,6 +175,12 @@ export function getProblemDetails(contestId, index, problemName, tags = [], rati
     ];
     notes = "Can you optimize the space complexity from O(N) to O(1) by only keeping track of the last few DP states?";
   } else if (topic.includes('graph') || topic.includes('tree') || topic.includes('dfs') || topic.includes('bfs')) {
+    const isTree = topic.includes('tree') && !topic.includes('segment tree');
+    inputType = isTree ? 'tree' : 'graph';
+    functionName = 'solve';
+    returnType = 'int';
+    paramNames = isTree ? ['root'] : ['n', 'edges'];
+    paramTypes = isTree ? ['TreeNode'] : ['int', 'int[][]'];
     description = `You are given a graph representing the network of connections for "${problemName}". There are N nodes and M edges. You need to find the shortest path, minimum spanning tree, or check connectivity between a source node and all other nodes.\n\nUse standard graph traversal (DFS, BFS, Dijkstra, or Kruskal) to traverse the components and compute the required metric.`;
     inputFormat = "The first line contains N (nodes) and M (edges). Each of the next M lines contains three integers u, v, and w representing a directed edge from u to v with weight w.";
     outputFormat = "Print the shortest distance or connectivity status as specified.";
@@ -153,6 +194,11 @@ export function getProblemDetails(contestId, index, problemName, tags = [], rati
     ];
     notes = "Use adjacency list representation and priority queues for shortest path computations to fit within the time limit.";
   } else if (topic.includes('greedy') || topic.includes('sortings')) {
+    inputType = 'greedy';
+    functionName = 'solve';
+    returnType = 'int';
+    paramNames = ['intervals'];
+    paramTypes = ['int[][]'];
     description = `You are given a set of jobs, intervals, or weights. For "${problemName}", you want to maximize the number of compatible tasks you can perform or minimize the total penalty.\n\nApply a greedy choice property: sort the inputs by end times, weights, or ratios, and make the locally optimal choice at each step. Prove that this leads to a globally optimal solution.`;
     inputFormat = "The first line contains an integer N. The next N lines contain two integers each, representing the start and end times of the intervals.";
     outputFormat = "Print the maximum number of intervals you can select without overlaps.";
@@ -166,6 +212,11 @@ export function getProblemDetails(contestId, index, problemName, tags = [], rati
     ];
     notes = "Sorting the intervals by end-time is a standard approach to maximize interval scheduling.";
   } else if (topic.includes('binary search')) {
+    inputType = 'binary-search';
+    functionName = 'solve';
+    returnType = 'int';
+    paramNames = ['nums', 'k'];
+    paramTypes = ['int[]', 'int'];
     description = `You are given a monotonic search space (such as a sorted array or a continuous function). For "${problemName}", you need to find the smallest value X that satisfies a particular feasibility condition.\n\nImplement a binary search over the answer. Write a helper function 'bool check(X)' that returns true if X is feasible in O(N) time.`;
     inputFormat = "The first line contains N and K. The second line contains N integers representing the elements.";
     outputFormat = "Print the minimum possible value that satisfies the condition.";
@@ -178,19 +229,6 @@ export function getProblemDetails(contestId, index, problemName, tags = [], rati
       }
     ];
     notes = "Pay attention to the low and high boundaries of your binary search range to avoid off-by-one errors.";
-  } else {
-    // Generic math / implementation
-    description = `You need to solve "${problemName}". Read the input numbers and implement the simulation or arithmetic calculations precisely as defined. Handle constraints and special inputs carefully.`;
-    inputFormat = "Input consists of test cases. The first line contains T, the number of test cases. Each test case is described in a single line.";
-    outputFormat = "For each testcase, print the calculated output.";
-    constraints.push("1 ≤ T ≤ 100", "0 ≤ Val ≤ 10^18");
-    examples = [
-      {
-        input: "2\n5\n10",
-        output: "15\n30",
-        explanation: "In this example, the output is simply 3 times the input value."
-      }
-    ];
   }
 
   return {
@@ -203,6 +241,11 @@ export function getProblemDetails(contestId, index, problemName, tags = [], rati
     title: problemName,
     difficulty: rating <= 1200 ? 'Easy' : rating <= 1900 ? 'Medium' : 'Hard',
     rating,
-    tags
+    tags,
+    inputType,
+    functionName,
+    returnType,
+    paramNames,
+    paramTypes
   };
 }

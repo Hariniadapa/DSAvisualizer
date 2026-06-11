@@ -1,6 +1,6 @@
 // frontend/src/components/Editor/CodeEditor.jsx
 import { useRef, useEffect } from 'react';
-import Editor, { loader } from '@monaco-editor/react';
+import Editor from '@monaco-editor/react';
 
 // ── Monaco theme definitions ────────────────────────────────────────────────
 const THEMES = {
@@ -26,24 +26,24 @@ const CUSTOM_THEMES = {
       { token: 'function',   foreground: '61afef' },
     ],
     colors: {
-      'editor.background':          '#282c34',
-      'editor.foreground':          '#abb2bf',
-      'editorLineNumber.foreground':'#495162',
-      'editor.selectionBackground': '#3e4451',
+      'editor.background':              '#282c34',
+      'editor.foreground':              '#abb2bf',
+      'editorLineNumber.foreground':    '#495162',
+      'editor.selectionBackground':     '#3e4451',
       'editor.lineHighlightBackground': '#2c313a',
-      'editorCursor.foreground':    '#528bff',
+      'editorCursor.foreground':        '#528bff',
     },
   },
   monokai: {
     base: 'vs-dark',
     inherit: true,
     rules: [
-      { token: 'comment',    foreground: '75715e', fontStyle: 'italic' },
-      { token: 'keyword',    foreground: 'f92672' },
-      { token: 'string',     foreground: 'e6db74' },
-      { token: 'number',     foreground: 'ae81ff' },
-      { token: 'type',       foreground: '66d9e8' },
-      { token: 'function',   foreground: 'a6e22e' },
+      { token: 'comment',  foreground: '75715e', fontStyle: 'italic' },
+      { token: 'keyword',  foreground: 'f92672' },
+      { token: 'string',   foreground: 'e6db74' },
+      { token: 'number',   foreground: 'ae81ff' },
+      { token: 'type',     foreground: '66d9e8' },
+      { token: 'function', foreground: 'a6e22e' },
     ],
     colors: {
       'editor.background':              '#272822',
@@ -58,12 +58,12 @@ const CUSTOM_THEMES = {
     base: 'vs-dark',
     inherit: true,
     rules: [
-      { token: 'comment',    foreground: '586e75', fontStyle: 'italic' },
-      { token: 'keyword',    foreground: '859900' },
-      { token: 'string',     foreground: '2aa198' },
-      { token: 'number',     foreground: 'd33682' },
-      { token: 'type',       foreground: '268bd2' },
-      { token: 'function',   foreground: 'b58900' },
+      { token: 'comment',  foreground: '586e75', fontStyle: 'italic' },
+      { token: 'keyword',  foreground: '859900' },
+      { token: 'string',   foreground: '2aa198' },
+      { token: 'number',   foreground: 'd33682' },
+      { token: 'type',     foreground: '268bd2' },
+      { token: 'function', foreground: 'b58900' },
     ],
     colors: {
       'editor.background':              '#002b36',
@@ -78,12 +78,12 @@ const CUSTOM_THEMES = {
     base: 'vs-dark',
     inherit: true,
     rules: [
-      { token: 'comment',    foreground: '4c566a', fontStyle: 'italic' },
-      { token: 'keyword',    foreground: '81a1c1' },
-      { token: 'string',     foreground: 'a3be8c' },
-      { token: 'number',     foreground: 'b48ead' },
-      { token: 'type',       foreground: '8fbcbb' },
-      { token: 'function',   foreground: '88c0d0' },
+      { token: 'comment',  foreground: '4c566a', fontStyle: 'italic' },
+      { token: 'keyword',  foreground: '81a1c1' },
+      { token: 'string',   foreground: 'a3be8c' },
+      { token: 'number',   foreground: 'b48ead' },
+      { token: 'type',     foreground: '8fbcbb' },
+      { token: 'function', foreground: '88c0d0' },
     ],
     colors: {
       'editor.background':              '#2e3440',
@@ -98,12 +98,12 @@ const CUSTOM_THEMES = {
     base: 'vs-dark',
     inherit: true,
     rules: [
-      { token: 'comment',    foreground: '8b949e', fontStyle: 'italic' },
-      { token: 'keyword',    foreground: 'ff7b72' },
-      { token: 'string',     foreground: 'a5d6ff' },
-      { token: 'number',     foreground: '79c0ff' },
-      { token: 'type',       foreground: 'ffa657' },
-      { token: 'function',   foreground: 'd2a8ff' },
+      { token: 'comment',  foreground: '8b949e', fontStyle: 'italic' },
+      { token: 'keyword',  foreground: 'ff7b72' },
+      { token: 'string',   foreground: 'a5d6ff' },
+      { token: 'number',   foreground: '79c0ff' },
+      { token: 'type',     foreground: 'ffa657' },
+      { token: 'function', foreground: 'd2a8ff' },
     ],
     colors: {
       'editor.background':              '#0d1117',
@@ -186,22 +186,59 @@ int main() {
 
 export { DEFAULT_CODE };
 
-export default function CodeEditor({ language, code, onChange, theme = 'vs-dark' }) {
-  const editorRef = useRef(null);
+// ── Component ────────────────────────────────────────────────────────────────
+export default function CodeEditor({
+  language,
+  code,
+  onChange,
+  theme    = 'vs-dark',
+  fontSize = 14,
+  onRun,        // callback for Ctrl+Enter shortcut
+  onFormat,     // callback for Ctrl+Shift+F
+}) {
+  const editorRef  = useRef(null);
+  const monacoRef  = useRef(null);
 
   const resolvedTheme = THEMES[theme] || 'vs-dark';
-  const isCustom      = CUSTOM_THEMES[resolvedTheme];
 
-  // Register custom themes on Monaco load
+  // Register custom themes before mount
   function handleBeforeMount(monaco) {
+    monacoRef.current = monaco;
     Object.entries(CUSTOM_THEMES).forEach(([name, def]) => {
       monaco.editor.defineTheme(name, def);
     });
   }
 
-  function handleMount(editor) {
+  // On mount: store ref and register Ctrl+Enter / Ctrl+Shift+F actions
+  function handleMount(editor, monaco) {
     editorRef.current = editor;
+
+    // Ctrl+Enter → Run
+    editor.addAction({
+      id:    'run-code',
+      label: 'Run Code',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+      run: () => { onRun?.(); },
+    });
+
+    // Ctrl+Shift+F → Format document
+    editor.addAction({
+      id:    'format-code',
+      label: 'Format Code',
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
+      ],
+      run: (ed) => {
+        ed.getAction('editor.action.formatDocument')?.run();
+        onFormat?.();
+      },
+    });
   }
+
+  // Update font size dynamically without remounting
+  useEffect(() => {
+    editorRef.current?.updateOptions({ fontSize });
+  }, [fontSize]);
 
   return (
     <Editor
@@ -213,38 +250,38 @@ export default function CodeEditor({ language, code, onChange, theme = 'vs-dark'
       beforeMount={handleBeforeMount}
       onMount={handleMount}
       options={{
-        fontSize:                14,
-        fontFamily:              "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-        fontLigatures:           true,
-        lineNumbers:             'on',
-        minimap:                 { enabled: false },
-        wordWrap:                'on',
-        scrollBeyondLastLine:    false,
-        folding:                 true,
-        automaticLayout:         true,
-        padding:                 { top: 16, bottom: 16 },
-        cursorBlinking:          'smooth',
+        fontSize,
+        fontFamily:                 "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+        fontLigatures:              true,
+        lineNumbers:                'on',
+        minimap:                    { enabled: false },
+        wordWrap:                   'on',
+        scrollBeyondLastLine:       false,
+        folding:                    true,
+        automaticLayout:            true,
+        padding:                    { top: 16, bottom: 16 },
+        cursorBlinking:             'smooth',
         cursorSmoothCaretAnimation: 'on',
-        smoothScrolling:         true,
-        renderLineHighlight:     'all',
-        renderWhitespace:        'selection',
-        tabSize:                 4,
-        insertSpaces:            true,
-        autoClosingBrackets:     'always',
-        autoClosingQuotes:       'always',
-        formatOnType:            true,
-        formatOnPaste:           true,
+        smoothScrolling:            true,
+        renderLineHighlight:        'all',
+        renderWhitespace:           'selection',
+        tabSize:                    4,
+        insertSpaces:               true,
+        autoClosingBrackets:        'always',
+        autoClosingQuotes:          'always',
+        formatOnType:               true,
+        formatOnPaste:              true,
         suggestOnTriggerCharacters: true,
-        quickSuggestions:        { other: true, comments: false, strings: false },
-        parameterHints:          { enabled: true },
-        hover:                   { enabled: true },
+        quickSuggestions:           { other: true, comments: false, strings: false },
+        parameterHints:             { enabled: true },
+        hover:                      { enabled: true },
         scrollbar: {
           verticalScrollbarSize:   6,
           horizontalScrollbarSize: 6,
         },
-        overviewRulerBorder:     false,
-        hideCursorInOverviewRuler: true,
-        glyphMargin:             false,
+        overviewRulerBorder:        false,
+        hideCursorInOverviewRuler:  true,
+        glyphMargin:                false,
       }}
     />
   );
